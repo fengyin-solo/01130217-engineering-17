@@ -145,7 +145,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import * as echarts from 'echarts'
+import { createChart } from '@/composables/useChartManager'
 
 const selectedWell = ref(1)
 const dateRange = ref('')
@@ -178,9 +178,8 @@ const productionList = ref([
 
 const initChart = () => {
   if (!trendChart.value) return
-  const chart = echarts.init(trendChart.value)
   const dates = ['1-10', '1-11', '1-12', '1-13', '1-14', '1-15', '1-16', '1-17', '1-18', '1-19', '1-20']
-  chart.setOption({
+  createChart(trendChart.value, {
     tooltip: { trigger: 'axis' },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
     xAxis: { type: 'category', boundaryGap: false, data: dates },
@@ -194,7 +193,6 @@ const initChart = () => {
       itemStyle: { color: '#3b82f6' }
     }]
   })
-  window.addEventListener('resize', () => chart.resize())
 }
 
 onMounted(() => {

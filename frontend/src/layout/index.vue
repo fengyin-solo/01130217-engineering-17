@@ -17,16 +17,16 @@
           <template v-for="item in menuList" :key="item.path">
             <el-sub-menu v-if="item.children && item.children.length > 0" :index="item.path">
               <template #title>
-                <el-icon><component :is="item.meta.icon" /></el-icon>
-                <span>{{ item.meta.title }}</span>
+                <el-icon><component :is="item.meta?.icon" /></el-icon>
+                <span>{{ item.meta?.title }}</span>
               </template>
               <el-menu-item v-for="child in item.children" :key="child.path" :index="`${item.path}/${child.path}`">
-                {{ child.meta.title }}
+                {{ child.meta?.title }}
               </el-menu-item>
             </el-sub-menu>
             <el-menu-item v-else :index="item.path">
-              <el-icon><component :is="item.meta.icon" /></el-icon>
-              <template #title>{{ item.meta.title }}</template>
+              <el-icon><component :is="item.meta?.icon" /></el-icon>
+              <template #title>{{ item.meta?.title }}</template>
             </el-menu-item>
           </template>
         </el-menu>
@@ -45,6 +45,12 @@
             </el-breadcrumb>
           </div>
           <div class="header-right">
+            <el-tooltip :content="healthStore.message" placement="bottom">
+              <span class="health-dot" :class="healthStore.status" @click="healthStore.check()">
+                <span class="health-dot-inner"></span>
+                <span class="health-dot-text">{{ healthText }}</span>
+              </span>
+            </el-tooltip>
             <el-dropdown @command="handleCommand">
               <div class="user-info">
                 <el-avatar :size="32" icon="User" />
@@ -79,11 +85,20 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
+import { useHealthStore } from '@/store/modules/health'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const healthStore = useHealthStore()
 const isCollapse = ref(false)
+
+const healthLabels: Record<string, string> = {
+  checking: '检测中',
+  healthy: '服务正常',
+  degraded: '降级运行'
+}
+const healthText = computed(() => healthLabels[healthStore.status] ?? healthLabels.degraded)
 
 const menuList = computed(() => {
   const routes = router.options.routes.find(r => r.path === '/')?.children || []
@@ -173,6 +188,41 @@ const handleCommand = (command: string) => {
 }
 
 .header-right {
+  .health-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 16px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #64748b;
+
+    .health-dot-inner {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #94a3b8;
+    }
+
+    &.checking .health-dot-inner {
+      background: #f59e0b;
+      animation: health-pulse 1.2s ease-in-out infinite;
+    }
+
+    &.healthy .health-dot-inner {
+      background: #22c55e;
+    }
+
+    &.degraded .health-dot-inner {
+      background: #ef4444;
+    }
+  }
+
+  @keyframes health-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
   .user-info {
     display: flex;
     align-items: center;

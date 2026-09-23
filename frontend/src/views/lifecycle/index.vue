@@ -174,10 +174,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch, computed } from 'vue'
-import * as echarts from 'echarts'
-import { getWellList } from '@/api/well'
-import { getWellLifecycle } from '@/api/lifecycle'
+import { ref, onMounted, watch, computed } from 'vue'
+import { createChart, useManagedTimeout } from '@/composables/useChartManager'
 
 interface Well {
   id: number
@@ -268,7 +266,8 @@ const handleWellChange = async () => {
 const selectStage = (stage: Stage) => {
   selectedStage.value = stage
   activeTab.value = 'metrics'
-  setTimeout(() => initTrendChart(), 100)
+  // 延时初始化由 useManagedTimeout 托管，离开页面后回调不会再操作已销毁的图表
+  useManagedTimeout(() => initTrendChart(), 100)
 }
 
 const loadWellList = async () => {
@@ -414,9 +413,7 @@ const loadLifecycleData = async () => {
 
 const initTrendChart = () => {
   if (!trendChart.value || !selectedStage.value) return
-  
-  const chart = echarts.init(trendChart.value)
-  
+
   const chartData: any = {
     exploration: {
       xData: ['1月', '2月', '3月'],
@@ -447,10 +444,10 @@ const initTrendChart = () => {
       ]
     }
   }
-  
+
   const data = chartData[selectedStage.value.id] || chartData.production
-  
-  chart.setOption({
+
+  createChart(trendChart.value, {
     tooltip: { trigger: 'axis' },
     legend: { data: data.series.map((s: any) => s.name) },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
@@ -464,16 +461,12 @@ const initTrendChart = () => {
       itemStyle: { color: s.color }
     }))
   })
-  
-  window.addEventListener('resize', () => chart.resize())
 }
 
 const initDurationChart = () => {
   if (!durationChart.value) return
-  
-  const chart = echarts.init(durationChart.value)
-  
-  chart.setOption({
+
+  createChart(durationChart.value, {
     title: { text: '各阶段周期对比', left: 'center', textStyle: { fontSize: 14 } },
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
@@ -495,16 +488,12 @@ const initDurationChart = () => {
       }
     }]
   })
-  
-  window.addEventListener('resize', () => chart.resize())
 }
 
 const initCostChart = () => {
   if (!costChart.value) return
-  
-  const chart = echarts.init(costChart.value)
-  
-  chart.setOption({
+
+  createChart(costChart.value, {
     title: { text: '各阶段费用占比', left: 'center', textStyle: { fontSize: 14 } },
     tooltip: { trigger: 'item' },
     legend: { orient: 'vertical', left: 'left' },
@@ -528,15 +517,19 @@ const initCostChart = () => {
       ]
     }]
   })
-  
-  window.addEventListener('resize', () => chart.resize())
 }
 
 const initCharts = () => {
-  initTrendChart()
   initDurationChart()
   initCostChart()
+  if (activeTab.value === 'trend') initTrendChart()
 }
+
+// 趋势图位于懒渲染的 tab-pane 中：首次切换到“数据趋势”时容器才挂载，
+// 此时再初始化；重复切换因 createChart 幂等而安全
+watch(activeTab, tab => {
+  if (tab === 'trend') useManagedTimeout(() => initTrendChart(), 0)
+})
 
 onMounted(async () => {
   await loadWellList()

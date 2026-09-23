@@ -140,7 +140,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import * as echarts from 'echarts'
+import { createChart } from '@/composables/useChartManager'
 
 const monitorChart = ref<HTMLElement>()
 const riskChart = ref<HTMLElement>()
@@ -171,10 +171,8 @@ const getLevelType = (level: string) => {
 
 const initMonitorChart = () => {
   if (!monitorChart.value) return
-  const chart = echarts.init(monitorChart.value)
   const times = Array.from({ length: 12 }, (_, i) => `${i * 2}:00`)
-  
-  chart.setOption({
+  createChart(monitorChart.value, {
     tooltip: { trigger: 'axis' },
     legend: { data: ['COD', '氨氮', '石油类', '硫化物'] },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
@@ -187,13 +185,11 @@ const initMonitorChart = () => {
       { name: '硫化物', type: 'line', smooth: true, data: [0.3, 0.35, 0.4, 0.38, 0.45, 0.5, 0.42, 0.38, 0.35, 0.4, 0.45, 0.4], itemStyle: { color: '#ef4444' } }
     ]
   })
-  window.addEventListener('resize', () => chart.resize())
 }
 
 const initRiskChart = () => {
   if (!riskChart.value) return
-  const chart = echarts.init(riskChart.value)
-  chart.setOption({
+  createChart(riskChart.value, {
     tooltip: { trigger: 'item' },
     series: [{
       name: '风险分布',
@@ -207,7 +203,6 @@ const initRiskChart = () => {
       label: { formatter: '{b}: {c} ({d}%)' }
     }]
   })
-  window.addEventListener('resize', () => chart.resize())
 }
 
 onMounted(() => {

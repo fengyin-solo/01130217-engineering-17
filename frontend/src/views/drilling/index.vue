@@ -110,14 +110,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import * as echarts from 'echarts'
+import { ref, reactive, onMounted } from 'vue'
+import { createChart, useManagedInterval } from '@/composables/useChartManager'
+import { appConfig } from '@/config'
 
 const selectedWell = ref(1)
 const chartPeriod = ref('1h')
 const realTimeChart = ref<HTMLElement>()
-let chartInstance: any = null
-let timer: any = null
 
 const wellList = ref([
   { id: 1, wellName: 'A-01井' },
@@ -158,13 +157,11 @@ const progressColor = '#3b82f6'
 
 const initChart = () => {
   if (!realTimeChart.value) return
-  chartInstance = echarts.init(realTimeChart.value)
   const times = Array.from({ length: 60 }, (_, i) => {
     const d = new Date(Date.now() - (59 - i) * 60000)
     return `${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`
   })
-  
-  chartInstance.setOption({
+  const chartInstance = createChart(realTimeChart.value, {
     tooltip: { trigger: 'axis' },
     legend: { data: ['钻压', '转速', '扭矩', '机械钻速'] },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
@@ -182,26 +179,22 @@ const initChart = () => {
       { name: '机械钻速', type: 'line', smooth: true, data: Array.from({ length: 60 }, () => 6 + Math.random() * 5), yAxisIndex: 3, itemStyle: { color: '#ef4444' } }
     ]
   })
-  window.addEventListener('resize', () => chartInstance.resize())
-}
 
-const updateData = () => {
-  realTimeData.wellDepth += 0.1
-  realTimeData.bitDepth += 0.1
-  realTimeData.wob = 200 + Math.random() * 50
-  realTimeData.rpm = 100 + Math.random() * 40
-  realTimeData.torque = 30 + Math.random() * 10
-  realTimeData.rop = 6 + Math.random() * 5
+  const updateData = () => {
+    if (!chartInstance) return
+    realTimeData.wellDepth += 0.1
+    realTimeData.bitDepth += 0.1
+    realTimeData.wob = 200 + Math.random() * 50
+    realTimeData.rpm = 100 + Math.random() * 40
+    realTimeData.torque = 30 + Math.random() * 10
+    realTimeData.rop = 6 + Math.random() * 5
+  }
+  return updateData
 }
 
 onMounted(() => {
-  initChart()
-  timer = setInterval(updateData, 2000)
-})
-
-onUnmounted(() => {
-  if (timer) clearInterval(timer)
-  if (chartInstance) chartInstance.dispose()
+  const updateData = initChart()
+  if (updateData) useManagedInterval(updateData, appConfig.refresh.drilling)
 })
 </script>
 

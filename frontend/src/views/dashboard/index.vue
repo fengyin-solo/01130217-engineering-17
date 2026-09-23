@@ -107,8 +107,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import * as echarts from 'echarts'
-import mapboxgl from 'mapbox-gl'
+import { createChart, useManagedInterval } from '@/composables/useChartManager'
+import { useWellMap } from '@/composables/useWellMap'
+import { appConfig } from '@/config'
+import { logger } from '@/utils/logger'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 const statistics = ref({
@@ -130,6 +132,9 @@ const productionTrendChart = ref<HTMLElement>()
 const wellStatusChart = ref<HTMLElement>()
 const mapContainer = ref<HTMLElement>()
 
+// 地图实例随组件作用域统一释放（含异步加载中途离开页面的场景）
+const wellMap = useWellMap()
+
 const getAlarmType = (level: string) => {
   const map: Record<string, any> = {
     '严重': 'danger',
@@ -141,8 +146,7 @@ const getAlarmType = (level: string) => {
 
 const initProductionTrendChart = () => {
   if (!productionTrendChart.value) return
-  const chart = echarts.init(productionTrendChart.value)
-  chart.setOption({
+  createChart(productionTrendChart.value, {
     tooltip: { trigger: 'axis' },
     legend: { data: ['日产油量', '日产水量'] },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
@@ -169,13 +173,11 @@ const initProductionTrendChart = () => {
       }
     ]
   })
-  window.addEventListener('resize', () => chart.resize())
 }
 
 const initWellStatusChart = () => {
   if (!wellStatusChart.value) return
-  const chart = echarts.init(wellStatusChart.value)
-  chart.setOption({
+  createChart(wellStatusChart.value, {
     tooltip: { trigger: 'item' },
     legend: { orient: 'vertical', left: 'left' },
     series: [
@@ -193,53 +195,23 @@ const initWellStatusChart = () => {
       }
     ]
   })
-  window.addEventListener('resize', () => chart.resize())
 }
 
-const initMap = () => {
-  if (!mapContainer.value) return
-  mapboxgl.accessToken = 'pk.eyJ1IjoibW9ja3Rva2VuIiwiYSI6ImNsa2M4OXF2ZjAxemgzYnA2djBqYjhxN3MifQ.Q'
-  try {
-    const map = new mapboxgl.Map({
-      container: mapContainer.value,
-      style: 'mapbox://styles/mapbox/light-v11',
-      center: [118.8, 38.5],
-      zoom: 6
-    })
-    
-    map.on('load', () => {
-      const wells = [
-        { lng: 118.5, lat: 38.2, name: 'A-01井', status: 'production' },
-        { lng: 118.8, lat: 38.5, name: 'B-03井', status: 'drilling' },
-        { lng: 119.1, lat: 38.3, name: 'C-02井', status: 'production' },
-        { lng: 118.6, lat: 38.7, name: 'D-05井', status: 'maintenance' }
-      ]
-      
-      wells.forEach(well => {
-        const el = document.createElement('div')
-        el.className = 'well-marker'
-        el.style.backgroundColor = well.status === 'production' ? '#22c55e' : well.status === 'drilling' ? '#3b82f6' : '#f59e0b'
-        el.style.width = '16px'
-        el.style.height = '16px'
-        el.style.borderRadius = '50%'
-        el.style.border = '2px solid #fff'
-        el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)'
-        
-        new mapboxgl.Marker(el)
-          .setLngLat([well.lng, well.lat])
-          .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`<h4>${well.name}</h4><p>状态: ${well.status}</p>`))
-          .addTo(map)
-      })
-    })
-  } catch (e) {
-    console.log('Mapbox token is mock, map will not display')
-  }
+/** 看板数据统一刷新：单张图表渲染失败不影响其余看板 */
+const refreshDashboard = () => {
+  logger.debug('dashboard', 'refresh statistics')
+  // 当前为静态看板数据；接入接口后仅需在此处更新 statistics / alarmList
 }
 
 onMounted(() => {
+  // 初始化幂等：createChart 内部复用已有实例，刷新 / 重进不会重复绑定
   initProductionTrendChart()
   initWellStatusChart()
-  initMap()
+  if (mapContainer.value) wellMap.init(mapContainer.value)
+
+  if (appConfig.refresh.dashboard > 0) {
+    useManagedInterval(refreshDashboard, appConfig.refresh.dashboard)
+  }
 })
 </script>
 

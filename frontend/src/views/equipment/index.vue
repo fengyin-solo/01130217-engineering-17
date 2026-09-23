@@ -261,7 +261,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, reactive } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import * as echarts from 'echarts'
+import { createChart } from '@/composables/useChartManager'
 import type { MaintenanceRecord } from '@/api/equipment'
 
 const typeChart = ref<HTMLElement>()
@@ -501,8 +501,7 @@ const handleMaintenanceClick = (item: any) => {
 
 const initChart = () => {
   if (!typeChart.value) return
-  const chart = echarts.init(typeChart.value)
-  chart.setOption({
+  createChart(typeChart.value, {
     tooltip: { trigger: 'item' },
     legend: { orient: 'vertical', right: 10, top: 'center' },
     series: [{
@@ -524,7 +523,6 @@ const initChart = () => {
       ]
     }]
   })
-  window.addEventListener('resize', () => chart.resize())
 }
 
 onMounted(() => {

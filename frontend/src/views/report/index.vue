@@ -98,7 +98,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import * as echarts from 'echarts'
+import { createChart } from '@/composables/useChartManager'
 
 const reportType = ref('daily')
 const dateRange = ref('')
@@ -115,9 +115,8 @@ const reportData = ref([
 
 const initTrendChart = () => {
   if (!trendChart.value) return
-  const chart = echarts.init(trendChart.value)
   const dates = ['1/10', '1/11', '1/12', '1/13', '1/14', '1/15', '1/16', '1/17', '1/18', '1/19', '1/20']
-  chart.setOption({
+  createChart(trendChart.value, {
     tooltip: { trigger: 'axis' },
     legend: { data: ['产油量', '产水量'] },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
@@ -128,13 +127,11 @@ const initTrendChart = () => {
       { name: '产水量', type: 'line', smooth: true, stack: 'Total', areaStyle: { color: 'rgba(34,197,94,0.1)' }, data: [1640, 1680, 1650, 1700, 1720, 1644.3, 1680, 1710, 1730, 1750, 1780], itemStyle: { color: '#22c55e' } }
     ]
   })
-  window.addEventListener('resize', () => chart.resize())
 }
 
 const initPieChart = () => {
   if (!pieChart.value) return
-  const chart = echarts.init(pieChart.value)
-  chart.setOption({
+  createChart(pieChart.value, {
     tooltip: { trigger: 'item' },
     legend: { orient: 'vertical', left: 'left' },
     series: [{
@@ -154,7 +151,6 @@ const initPieChart = () => {
       ]
     }]
   })
-  window.addEventListener('resize', () => chart.resize())
 }
 
 onMounted(() => {
