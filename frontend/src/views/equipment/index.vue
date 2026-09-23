@@ -261,10 +261,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, reactive } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import * as echarts from 'echarts'
+import { useEChart } from '@/composables/useEChart'
 import type { MaintenanceRecord } from '@/api/equipment'
 
 const typeChart = ref<HTMLElement>()
+const { render: renderTypeChart } = useEChart(typeChart, { name: 'equipment.type' })
 const loading = ref(false)
 const submitLoading = ref(false)
 const maintenanceDialogVisible = ref(false)
@@ -499,10 +500,8 @@ const handleMaintenanceClick = (item: any) => {
   console.log('Clicked reminder:', item)
 }
 
-const initChart = () => {
-  if (!typeChart.value) return
-  const chart = echarts.init(typeChart.value)
-  chart.setOption({
+const initChart = async () => {
+  await renderTypeChart({
     tooltip: { trigger: 'item' },
     legend: { orient: 'vertical', right: 10, top: 'center' },
     series: [{
@@ -524,11 +523,10 @@ const initChart = () => {
       ]
     }]
   })
-  window.addEventListener('resize', () => chart.resize())
 }
 
 onMounted(() => {
-  initChart()
+  void initChart()
 })
 </script>
 

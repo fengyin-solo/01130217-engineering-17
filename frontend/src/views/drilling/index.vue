@@ -110,14 +110,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import * as echarts from 'echarts'
+import { ref, reactive, onMounted } from 'vue'
+import { useEChart } from '@/composables/useEChart'
+import { useRefresh } from '@/composables/useRefresh'
 
 const selectedWell = ref(1)
 const chartPeriod = ref('1h')
 const realTimeChart = ref<HTMLElement>()
-let chartInstance: any = null
-let timer: any = null
 
 const wellList = ref([
   { id: 1, wellName: 'A-01井' },
@@ -156,15 +155,16 @@ const alarmList = ref([
 
 const progressColor = '#3b82f6'
 
-const initChart = () => {
+const { render: renderChart } = useEChart(realTimeChart, { name: 'drilling.realtime' })
+
+const initChart = async () => {
   if (!realTimeChart.value) return
-  chartInstance = echarts.init(realTimeChart.value)
   const times = Array.from({ length: 60 }, (_, i) => {
     const d = new Date(Date.now() - (59 - i) * 60000)
     return `${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`
   })
-  
-  chartInstance.setOption({
+
+  await renderChart({
     tooltip: { trigger: 'axis' },
     legend: { data: ['钻压', '转速', '扭矩', '机械钻速'] },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
@@ -182,7 +182,6 @@ const initChart = () => {
       { name: '机械钻速', type: 'line', smooth: true, data: Array.from({ length: 60 }, () => 6 + Math.random() * 5), yAxisIndex: 3, itemStyle: { color: '#ef4444' } }
     ]
   })
-  window.addEventListener('resize', () => chartInstance.resize())
 }
 
 const updateData = () => {
@@ -195,14 +194,12 @@ const updateData = () => {
 }
 
 onMounted(() => {
-  initChart()
-  timer = setInterval(updateData, 2000)
+  void initChart()
 })
 
-onUnmounted(() => {
-  if (timer) clearInterval(timer)
-  if (chartInstance) chartInstance.dispose()
-})
+// 实时数据刷新：定时器、可见性暂停与卸载释放统一由 useRefresh 管理，
+// 显式 2000ms 间隔保持原实时监控频率不变
+useRefresh(updateData, { name: 'drilling.realtime', interval: 2000 })
 </script>
 
 <style scoped lang="scss">

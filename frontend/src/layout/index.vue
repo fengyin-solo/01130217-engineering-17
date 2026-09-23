@@ -17,16 +17,16 @@
           <template v-for="item in menuList" :key="item.path">
             <el-sub-menu v-if="item.children && item.children.length > 0" :index="item.path">
               <template #title>
-                <el-icon><component :is="item.meta.icon" /></el-icon>
-                <span>{{ item.meta.title }}</span>
+                <el-icon><component :is="item.meta?.icon" /></el-icon>
+                <span>{{ item.meta?.title }}</span>
               </template>
               <el-menu-item v-for="child in item.children" :key="child.path" :index="`${item.path}/${child.path}`">
-                {{ child.meta.title }}
+                {{ child.meta?.title }}
               </el-menu-item>
             </el-sub-menu>
             <el-menu-item v-else :index="item.path">
-              <el-icon><component :is="item.meta.icon" /></el-icon>
-              <template #title>{{ item.meta.title }}</template>
+              <el-icon><component :is="item.meta?.icon" /></el-icon>
+              <template #title>{{ item.meta?.title }}</template>
             </el-menu-item>
           </template>
         </el-menu>
@@ -45,6 +45,13 @@
             </el-breadcrumb>
           </div>
           <div class="header-right">
+            <el-tooltip placement="bottom" :content="healthTooltip">
+              <span class="health-dot" :class="`health-${healthStore.status}`" @click="handleHealthClick">
+                <el-icon v-if="healthStore.status === 'up'"><CircleCheckFilled /></el-icon>
+                <el-icon v-else-if="healthStore.status === 'down'"><CircleCloseFilled /></el-icon>
+                <el-icon v-else><Loading /></el-icon>
+              </span>
+            </el-tooltip>
             <el-dropdown @command="handleCommand">
               <div class="user-info">
                 <el-avatar :size="32" icon="User" />
@@ -79,10 +86,13 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
+import { useHealthStore } from '@/store/modules/health'
+import { appConfig } from '@/config'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const healthStore = useHealthStore()
 const isCollapse = ref(false)
 
 const menuList = computed(() => {
@@ -93,6 +103,30 @@ const menuList = computed(() => {
 const currentTitle = computed(() => {
   return route.meta?.title || ''
 })
+
+const formatTime = (ts: number) => {
+  if (!ts) return '-'
+  return new Date(ts).toLocaleTimeString()
+}
+
+const healthTooltip = computed(() => {
+  const statusText = { pending: '检查中', up: '服务正常', down: '服务异常（已降级运行）' }[healthStore.status]
+  const lines = [
+    `状态: ${statusText}`,
+    `版本: ${appConfig.version}`,
+    `构建时间: ${appConfig.buildTime ? new Date(appConfig.buildTime).toLocaleString() : '-'}`,
+    `最近检查: ${formatTime(healthStore.checkedAt)}`,
+  ]
+  if (healthStore.error) lines.push(`原因: ${healthStore.error}`)
+  lines.push('点击可重新检查；控制台可输入 window.__WLMS__、window.__WLMS_METRICS__ 排查')
+  return lines.join('\n')
+})
+
+const handleHealthClick = () => {
+  healthStore.recheck().then((ok) => {
+    ElMessage[ok ? 'success' : 'warning'](ok ? '健康检查通过' : '健康检查未通过，页面继续降级运行')
+  })
+}
 
 const handleCommand = (command: string) => {
   if (command === 'logout') {
@@ -173,12 +207,27 @@ const handleCommand = (command: string) => {
 }
 
 .header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  .health-dot {
+    display: inline-flex;
+    align-items: center;
+    font-size: 18px;
+    cursor: pointer;
+
+    &.health-up { color: #22c55e; }
+    &.health-down { color: #ef4444; }
+    &.health-pending { color: #f59e0b; }
+  }
+
   .user-info {
     display: flex;
     align-items: center;
     gap: 10px;
     cursor: pointer;
-    
+
     .username {
       font-size: 14px;
       color: #334155;
